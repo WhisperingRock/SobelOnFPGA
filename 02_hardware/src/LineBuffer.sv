@@ -30,8 +30,9 @@
 
 
 module LineBuffer
-#(parameter	int unsigned PWIDTH = 512,
-			int unsigned PHEIGHT = 512)
+#(parameter	int unsigned PWIDTH 	= 512,
+			int unsigned PHEIGHT 	= 512
+)
 ( 
 	input logic				CLK_i, 
 	input logic				RST_i, 
@@ -42,8 +43,8 @@ module LineBuffer
 );
 
 	// ~~~~ local params/alloc ~~~~
-	logic [7:0] line [0:PWIDTH-1];			// Single line contains 512 bytes worth of pixels
-	logic [8:0]	writePtr; 					// 9 bits covers range of PIXELHEIGHT s.t. 2^9 = 512
+	logic [7:0] line [0:PWIDTH-1];			// line contains 512 (bytes) pixels
+	logic [8:0]	writePtr; 					// 9 bits covers 512 pixel width (2^9)
 	logic [8:0] readPtr;
 	
 	
@@ -75,6 +76,6 @@ module LineBuffer
 	end
 	
 	// ~~~~ comb logic ~~~~
-	assign DOUT_o = {line[readPtr], line[readPtr+1], line[readPtr+2]};	// pack pixels, for one row in a 3x3 kernel, into a single output
+	assign DOUT_o = {line[readPtr], line[readPtr+1], line[readPtr+2]};	// pack 3 pixels for kernel row
 	
 endmodule
