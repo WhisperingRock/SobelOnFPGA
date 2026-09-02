@@ -17,6 +17,12 @@
 \usepackage{enumitem}
 %\usepackage{xfrac}
 \usepackage[normalem]{ulem}
+\usepackage{mathtools}
+
+
+% ~~~~ no indent per paragraph ~~~~ 
+\usepackage[parfill]{parskip}
+
 
 \usepackage[colorlinks=true, linkcolor=blue]{hyperref}
 
@@ -66,17 +72,17 @@
 	keywordstyle=\color{magenta},
 	numberstyle=\tiny\color{codegray},
 	stringstyle=\color{codepurple},
-	basicstyle=\ttfamily\footnotesize,
+	basicstyle=\ttfamily\scriptsize,
 	breakatwhitespace=false,
 	breaklines=true,
 	captionpos=b,
-	keepspaces=true,
+	keepspaces=false,
 	numbers=left,
 	numbersep=5pt,
 	showspaces=false,
 	showstringspaces=false,
 	showtabs=false,
-	tabsize=2
+	tabsize=4
 }
 
 \lstset{style=mystyle}
@@ -179,7 +185,7 @@
 			Notes:
 			\begin{itemize}
 				\item Need at least three writes at or ahead of readPtr before 
-					using output data to avoid reading jump.
+					using output data to avoid reading junk.
 			\end{itemize}
 			
 			\begin{figure}[H]
@@ -209,6 +215,68 @@
 				\item \texttt{LineBuffer\_tb.sv} \ref{testcode:linebuff}
 			\end{itemize}
 
+		\newpage
+		\section{Convolution}
+
+			The Convolution module is designed to \ldots
+			\begin{itemize}
+				\item Perform a single matrix multiplication as part of
+						convolving the image with the kernel filter. 
+			\end{itemize}
+
+			\textbf{Always}:
+			\[
+				sum = \sum_{i=0}^{8} m[i] * k[i]
+			\] 
+
+			\textbf{CLK}:
+			\[
+				Result = 
+				\begin{cases*}
+					Result & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
+					\begin{cases*}
+						0 	& , if	$sum < 0$ 	\\
+						255	& , if	$sum > 255$	\\
+						\frac{sum}{div} & , else
+					\end{cases*} & , if $\text{\texttt{MATRIX\_VALID}}$
+				\end{cases*}
+			\] 
+
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/convolution/block.png}
+				\caption{Convolution Block}
+				\label{fig:conv_block}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/convolution/visual.png}
+				\caption{Convolution Visualized}
+				\label{fig:conv_visual}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[
+					angle			= 90,
+					origin			= c,
+					trim			= 5mm 90mm 5mm 90mm,
+					clip,
+					width			= 0.8\textwidth,
+					keepaspectratio	= true
+				]{../01_supporting/convolution/rtl.pdf}
+				\caption{Convolution RTL}
+				\label{fig:conv_rtl}
+			\end{figure}
+
+			Code Snippets : 
+			\begin{itemize}
+				\item \texttt{Convolution.sv} \ref{code:convolution}
+				\item \texttt{Convolution\_tb.sv} \ref{testcode:convolution}
+			\end{itemize}
+
 
 	\chapter{Results}
 
@@ -236,6 +304,28 @@
 					breaklines	= true,
 					label		= {testcode:linebuff}
 				]{../02_hardware/sim/LineBuffer_tb.sv}
+
+
+			\subsection{Convolution}
+	
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{Convolution.sv}},
+					breaklines	= true,
+					label		= {code:convolution}
+				]{../02_hardware/src/Convolution.sv}
+
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{Convolution\_tb.sv}},
+					breaklines	= true,
+					label		= {testcode:convolution}
+				]{../02_hardware/sim/Convolution_tb.sv}
+
+
+
 
 	\chapter{References}
 		\href{https://www.youtube.com/watch?v=Zm3KzhahbUg&list=PL1tvZA53A9hJnwmiqPt1KeXrAQ9kd52H2&index=11}{Youtube Inspiration}
