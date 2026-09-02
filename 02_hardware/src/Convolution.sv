@@ -20,7 +20,18 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module Convolution(
+module Convolution
+#(
+	parameter logic signed [7:0] 	KERNEL [0:8] = 
+	'{
+		8'd1, 8'd1, 8'd1,
+		8'd1, 8'd1, 8'd1,
+		8'd1, 8'd1, 8'd1		
+	},
+	
+	parameter logic [15:0]		 	DIV = 16'd9
+)
+(
 	input logic				CLK_i, 
 	input logic		[71:0]	PIXEL_DATA_i,				// 3x3 = 9 pixels, 8 bits each
 	input logic				PIXEL_DATA_VALID_i, 		// indicates incoming data is ready to be read
@@ -29,15 +40,9 @@ module Convolution(
 );
 
 	// ~~~~ local param/alloc/const ~~~~
-	localparam logic signed [7:0] 	KERNEL [0:8] = 
-	'{
-		8'd1, 8'd1, 8'd1,
-		8'd1, 8'd1, 8'd1,
-		8'd1, 8'd1, 8'd1		
-	};
-	
-	localparam logic [15:0]		 	div = 16'd9;		// 9 for a DC bias/gain on a 3x3 kernel
-	logic [19:0] 					sum_comb; 
+	logic signed 		[23:0] 	sum_comb;
+	localparam signed	[8:0] 	PIXELMIN = 0;
+	localparam signed 	[8:0]	PIXELMAX = 255; 
 
 	
 	// ~~~~ async logic ~~~~
@@ -45,11 +50,12 @@ module Convolution(
 	always_comb begin
 		
 		// ~~ sanitize between kernel operations ~~
-		sum_comb = 16'd0;
+		sum_comb = '0;
 		
 		// ~~ compute an entire kernel sum per CLK ~~
 		for(int i = 0; i < 9; i++) begin
-			sum_comb += KERNEL[i] * PIXEL_DATA_i[i*8 +: 8];		// Using indexed part-selection [start_index +: width]
+			sum_comb += KERNEL[i] * $signed({1'b0, PIXEL_DATA_i[i*8 +: 8]});		// Using indexed part-selection [start_index +: width]
+																// ensuring we mutiply signed with signed (using a sign bit) 
 		end
 	end
 	
@@ -61,7 +67,9 @@ module Convolution(
 																// likely also ready
 		
 		if(PIXEL_DATA_VALID_i) begin
-			CONVOLVED_DATA_o <= sum_comb / div; 				// integer rounding into average value
+			if(sum_comb < PIXELMIN) 		begin 	CONVOLVED_DATA_o <= 8'd0; 			end	// floor clip output 
+			else if(sum_comb > PIXELMAX) 	begin	CONVOLVED_DATA_o <= PIXELMAX; 		end	// ceiling clip output
+			else 							begin	CONVOLVED_DATA_o <= sum_comb / DIV;	end	// output is applied a gain factor
 		end
 	end
 
