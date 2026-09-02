@@ -1,0 +1,243 @@
+\documentclass[a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage[]{amsthm} 
+\usepackage[]{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{soul}
+\usepackage{color}
+\usepackage{bm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+%\usepackage{xfrac}
+\usepackage[normalem]{ulem}
+
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+
+\usepackage{tikz}
+\usetikzlibrary{trees}
+\usetikzlibrary {fit,shapes.geometric} % W: Command terminated with space. (1)
+\usetikzlibrary {automata} % W: Command terminated with space. (1)
+\usetikzlibrary{arrows.meta}
+\usepackage{multicol}
+
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{caption}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat = newest}
+
+\usepackage{geometry}
+\geometry{legalpaper, margin=1in}
+
+\renewcommand{\labelitemii}{$\circ$}
+\renewcommand{\labelitemiii}{$\star$}
+\renewcommand{\labelitemiv}{$>$}
+
+% figure support
+\usepackage{import}
+\usepackage{xifthen}
+\pdfminorversion=7
+\usepackage{pdfpages}
+\usepackage{transparent}
+\newcommand{\incfig}[1]{%
+    \def\svgwidth{\columnwidth}
+    \import{./figures/}{#1.pdf_tex}}
+
+% Newline for algorithm psuedo
+\newcommand{\algrule}[1][.2pt]{\par\vskip.5\baselineskip\hrule height #1\par\vskip.5\baselineskip}
+
+% -------- Listings/XColor Settings --------
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen},
+	keywordstyle=\color{magenta},
+	numberstyle=\tiny\color{codegray},
+	stringstyle=\color{codepurple},
+	basicstyle=\ttfamily\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2
+}
+
+\lstset{style=mystyle}
+
+% -------------- Doc Start -------------------
+
+
+
+\pdfsuppresswarningpagegroup=1
+
+\title{\Huge{Sobel Filter on FPGA}}
+\author{\textbf{Authors:} \\WhisperingRock \\ \\ \textbf{Professor:} \\}
+\date{Class:\\ \small{Quarter}: \\ \today}
+
+\begin{document}
+    \maketitle
+	\phantomsection
+	\addcontentsline{toc}{section}{\contentsname}
+	\tableofcontents
+
+	\chapter{Theory of the Sobel Operator}
+
+		\section{Grayscale Operator}
+		This implementation requires that the RBG image (\hl{TODO} img type) 
+				be flattened into a single intensity value (a grayscale value). 
+				This can be done with a few methods.
+
+			\begin{itemize}
+				\item Average : $$p = \frac{R + G + B}{3}$$
+				\item \href{https://en.wikipedia.org/wiki/Rec._709}{ITU-R B.709 Luminance}
+					\[p = 0.2126 R + 0.7152 G + 0.0722 B\]
+			\end{itemize}
+ 
+			I opt'd to use Luminance for its accepted standard.
+
+		\section{Sobel Operator}	
+
+			Uses two 3x3 kernels which are convolved with the original 
+			(grayscale) image to calculate approximations of the derivatives. 
+			Each kernel, one for horizontal change and one for vertical change, 
+			performs a low pass Gaussian filtering [1 2 1] as well a discrete
+			differentiation [+1 0 -1] on each pixel of the image.
+
+			 \[
+			 	\bf{G_x} =
+			 	\begin{bmatrix}
+			 		+1 & 0 & -1 \\
+			 		+2 & 0 & -2 \\
+			 		+1 & 0 & -1
+			 	\end{bmatrix}
+				=
+			 	\begin{bmatrix} 1 \\ 2 \\ 1 \end{bmatrix}
+			 	\begin{bmatrix} +1 & 0 & -1 \end{bmatrix}
+			\]
+
+			\[ 
+				\bf{G_y} =
+				\begin{bmatrix}
+					+1 & +2 & +1 \\
+					0 & 0 & 0 \\
+					-1 & -2 & -1
+				\end{bmatrix}
+				= 
+				\begin{bmatrix} +1 \\ 0 \\ -1 \end{bmatrix}
+				\begin{bmatrix} 1 & 2 & 1 \end{bmatrix}
+			\]
+ 
+			Consider the resulting components : 
+			\begin{itemize}
+				\item Magnitude : $$\bf{G} = \sqrt{\bf{G_x}^2 + \bf{G_y} ^ 2}$$
+				\item Direction of gradient : $$\bf{\Theta} = \arctan{\left(\frac{G_y}{G_x}\right)}$$
+			\end{itemize}
+
+			The results of the operator produce a cheap edge detector that 
+			performs some smoothing while retaining a DC gain of 1.
+			For the scope of this project, I'm only using the magnitude.
+
+	\chapter{System Architecture}
+
+	\chapter{FPGA IP}
+	
+		\section{Line Buffer}
+
+			The LineBuffer is designed to \ldots
+			\begin{itemize}
+				\item incrementally collect individual input pixel values 
+						into the internal storage, using \textit{DIN\_AVAIL} 
+						and \textit{DIN}, on each clock cycle. \textit{DIN\_AVAIL}
+						enables writes while also moving the write pointer to the 
+						next position.
+				\item always output a 3 pack of neighbor pixels to \textit{DOUT},
+						only updating and shifting on a clock'd \textit{DOUT\_AVAIL}.
+
+				\item naturally rollover internal readPtr and writePtr to
+						512 count (pixels) or reset to zero using \textit{RST}.
+						One might consider the buffer circular using the rollover.
+			\end{itemize}
+
+
+			Notes:
+			\begin{itemize}
+				\item Need at least three writes at or ahead of readPtr before 
+					using output data to avoid reading jump.
+			\end{itemize}
+			
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/linebuffer/block.png}
+				\caption{LineBuffer Block}
+				\label{fig:lb_block}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.5\textwidth]{../01_supporting/linebuffer/visual.png}
+				\caption{LineBuffer Visualized}
+				\label{fig:lb_visual}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.8\textwidth]{../01_supporting/linebuffer/rtl.png}
+				\caption{LineBuffer RTL}
+				\label{fig:lb_rtl}
+			\end{figure}	
+
+			Code Snippets : 
+			\begin{itemize}
+				\item \texttt{LineBuffer.sv} \ref{code:linebuff}
+				\item \texttt{LineBuffer\_tb.sv} \ref{testcode:linebuff}
+			\end{itemize}
+
+
+	\chapter{Results}
+
+	\chapter{Analysis}
+
+	\chapter{Conclusion}
+
+	\chapter{Appendix}
+		\section{SystemVerilog}
+
+			\subsection{Line Buffer}
+	
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{LineBuffer.sv}},
+					breaklines	= true,
+					label		= {code:linebuff}
+				]{../02_hardware/src/LineBuffer.sv}
+
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{LineBuffer\_tb.sv}},
+					breaklines	= true,
+					label		= {testcode:linebuff}
+				]{../02_hardware/sim/LineBuffer_tb.sv}
+
+	\chapter{References}
+		\href{https://www.youtube.com/watch?v=Zm3KzhahbUg&list=PL1tvZA53A9hJnwmiqPt1KeXrAQ9kd52H2&index=11}{Youtube Inspiration}
+
+\end{document}
