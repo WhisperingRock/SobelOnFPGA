@@ -30,9 +30,9 @@ module Convolution_tb();
 	// ~~ ports ~~
 	logic					clk;
 	logic [71:0]			mat;
-	logic					pixel_data_valid;
+	logic					mat_valid;
 	logic [7:0]				result1, result2; 
-	logic					convolved_data_valid1, convolved_data_valid2;
+	logic					result_valid1, result_valid2;
 	// ~~ consts ~~
 	localparam logic signed [7:0] K_BOX [0:8] = 
 	'{
@@ -63,10 +63,10 @@ module Convolution_tb();
 	UUT_BOX
 	(
 		.CLK_i(clk), 
-		.PIXEL_DATA_i(mat),				
-		.PIXEL_DATA_VALID_i(pixel_data_valid), 
-		.CONVOLVED_DATA_o(result1), 
-		.CONVOLVED_DATA_VALID_o(convolved_data_valid1)
+		.MATRIX_i(mat),				
+		.MATRIX_VALID_i(mat_valid), 
+		.RESULT_o(result1), 
+		.RESULT_VALID_o(result_valid1)
 	);
 	
 	Convolution 
@@ -77,10 +77,10 @@ module Convolution_tb();
 	UUT_SOBEL_X
 	(
 		.CLK_i(clk), 
-		.PIXEL_DATA_i(mat),				
-		.PIXEL_DATA_VALID_i(pixel_data_valid), 
-		.CONVOLVED_DATA_o(result2), 
-		.CONVOLVED_DATA_VALID_o(convolved_data_valid2)
+		.MATRIX_i(mat),				
+		.MATRIX_VALID_i(mat_valid), 
+		.RESULT_o(result2), 
+		.RESULT_VALID_o(result_valid2)
 	);
 
 	
@@ -100,7 +100,7 @@ module Convolution_tb();
 		// ~~ defaults ~~
 		clk					= 1'b1;
 		mat					= 72'h00_00_00___00_00_00___00_00_00;
-		pixel_data_valid	= 1'b1;
+		mat_valid			= 1'b1;
 		#100; 
 		
 		
@@ -110,22 +110,22 @@ module Convolution_tb();
 			mat					= 72'h01_01_01___01_01_01___01_01_01;
 			#5;
 			assert(result1 === {8'h01})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
 				
 		// ~~ TC2 ~~
-		tc.new_test("0's Mat"); 
+		tc.new_test("Floor Mat"); 
 		tnum					= tc.get_testnum();
 			mat					= 72'h00_00_00___00_00_00___00_00_00;
 			#5;
 			assert(result1 === {8'h00})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -135,21 +135,21 @@ module Convolution_tb();
 			mat					= 72'h05_05_05___05_05_05___05_05_05;
 			#5;
 			assert(result1 === {8'h05})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
 		// ~~ TC4 ~~
-		tc.new_test("255's Mat"); 
+		tc.new_test("Ceiling Mat"); 
 		tnum					= tc.get_testnum();
 			mat					= 72'hFF_FF_FF___FF_FF_FF___FF_FF_FF;
 			#5;
 			assert(result1 === {8'hFF})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -159,9 +159,9 @@ module Convolution_tb();
 			mat					= 72'h01_00_00___00_01_00___00_00_01;
 			#5;
 			assert(result1 === {8'h00})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -171,9 +171,9 @@ module Convolution_tb();
 			mat					= 72'h03_00_00___00_03_00___00_00_03;
 			#5;
 			assert(result1 === {8'h01})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -183,9 +183,9 @@ module Convolution_tb();
 			mat					= 72'h01_02_03___04_05_06___07_08_09; // mat[0] = 09 
 			#5;
 			assert(result1 === {8'h05})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h08})					else tc.err("SobelX result error");				
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -195,9 +195,9 @@ module Convolution_tb();
 			mat					= 72'h09_08_07___06_05_04___03_02_01;	// mat[0] = 01
 			#5;
 			assert(result1 === {8'h05})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'h00})					else tc.err("SobelX result error");				// should be -8 but floor clip
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -207,9 +207,9 @@ module Convolution_tb();
 			mat					= 72'h00_00_00___00_00_09___00_00_00;
 			#5;
 			assert(result1 === {8'h01})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b1})	else tc.err("BoxBlur conv_data_valid error");
+			assert(result_valid1 === {1'b1})			else tc.err("BoxBlur result_valid error");
 			assert(result2 === {8'd18})					else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b1})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid2 === {1'b1})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 		
@@ -217,12 +217,12 @@ module Convolution_tb();
 		tc.new_test("New data not ready"); 
 		tnum					= tc.get_testnum();
 			mat					= 72'h00_00_00___00_09_00___00_00_00;
-			pixel_data_valid	= 1'b0;
+			mat_valid	= 1'b0;
 			#5;
 			assert(result1 === {8'h01})					else tc.err("BoxBlur result error");
-			assert(convolved_data_valid1 === {1'b0})	else tc.err("BoxBlur conv_data_valid error");
-			assert(result2 === {8'd18})				else tc.err("SobelX result error");
-			assert(convolved_data_valid2 === {1'b0})	else tc.err("SobelX conv_data_valid error");
+			assert(result_valid1 === {1'b0})			else tc.err("BoxBlur result_valid error");
+			assert(result2 === {8'd18})					else tc.err("SobelX result error");
+			assert(result_valid2 === {1'b0})			else tc.err("SobelX result_valid error");
 			#5;
 		tc.test_done();
 	end
