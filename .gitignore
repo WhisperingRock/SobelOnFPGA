@@ -8,6 +8,9 @@
 *.fls
 *.toc
 
+# ~~ draw.io ~~
+*.drawio.bkp
+
 # ~~ vivado ~~
 *.cache*
 *.hw*
