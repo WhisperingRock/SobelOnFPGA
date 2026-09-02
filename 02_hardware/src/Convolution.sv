@@ -16,7 +16,7 @@
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+// 						Input Mat LSB is element zero!!!!
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -33,10 +33,10 @@ module Convolution
 )
 (
 	input logic				CLK_i, 
-	input logic		[71:0]	PIXEL_DATA_i,				// 3x3 = 9 pixels, 8 bits each
-	input logic				PIXEL_DATA_VALID_i, 		// indicates incoming data is ready to be read
-	output logic	[7:0]	CONVOLVED_DATA_o, 			// result
-	output logic			CONVOLVED_DATA_VALID_o		// indicates convolution has finished
+	input logic		[71:0]	MATRIX_i,				// 3x3 = 9 pixels, 8 bits each
+	input logic				MATRIX_VALID_i, 		// input ready for import
+	output logic	[7:0]	RESULT_o, 					
+	output logic			RESULT_VALID_o			// result ready for export
 );
 
 	// ~~~~ local param/alloc/const ~~~~
@@ -54,8 +54,9 @@ module Convolution
 		
 		// ~~ compute an entire kernel sum per CLK ~~
 		for(int i = 0; i < 9; i++) begin
-			sum_comb += KERNEL[i] * $signed({1'b0, PIXEL_DATA_i[i*8 +: 8]});		// Using indexed part-selection [start_index +: width]
-																// ensuring we mutiply signed with signed (using a sign bit) 
+			sum_comb += KERNEL[i] * $signed({1'b0, MATRIX_i[i*8 +: 8]});		// idx part-selection 
+																				//     [start_index +: width]
+																				// extending to signed
 		end
 	end
 	
@@ -63,13 +64,12 @@ module Convolution
 	// ~~~~ sync logic ~~~~
 	always_ff @(posedge CLK_i) begin
 	
-		CONVOLVED_DATA_VALID_o <= PIXEL_DATA_VALID_i;			// if input data is valid on this cycle, then output data is
-																// likely also ready
+		RESULT_VALID_o <= MATRIX_VALID_i;										// result likely ready if input is 
 		
-		if(PIXEL_DATA_VALID_i) begin
-			if(sum_comb < PIXELMIN) 		begin 	CONVOLVED_DATA_o <= 8'd0; 			end	// floor clip output 
-			else if(sum_comb > PIXELMAX) 	begin	CONVOLVED_DATA_o <= PIXELMAX; 		end	// ceiling clip output
-			else 							begin	CONVOLVED_DATA_o <= sum_comb / DIV;	end	// output is applied a gain factor
+		if(MATRIX_VALID_i) begin
+			if(sum_comb < PIXELMIN) 		begin 	RESULT_o <= 8'd0; 			end	// floor clip 
+			else if(sum_comb > PIXELMAX) 	begin	RESULT_o <= PIXELMAX; 		end	// or ceil clip
+			else 							begin	RESULT_o <= sum_comb / DIV;	end	// or apply gain factor
 		end
 	end
 
