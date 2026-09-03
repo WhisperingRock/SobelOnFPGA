@@ -33,17 +33,28 @@ module LineBuffer_tb();
 	logic 					din_avail;
 	logic					dout_avail; 
 	logic	[23:0]			dout;
+	
 	// ~~ consts ~~
-	localparam int unsigned PWIDTH 	= 12;	// smaller for ease of testing
-	localparam int unsigned	PHEIGHT = 12;
+	localparam int unsigned PIXELWIDTH 	= 8;	// smaller for ease of testing
+	localparam int unsigned	PIXELHEIGHT = 8;
+	localparam int unsigned	WPTR_BIT	= $clog2(PIXELWIDTH);
+	localparam int unsigned	RPTR_BIT	= $clog2(PIXELWIDTH);
+	
 	// ~~ testing ~~
-	testcase tc;
-	logic	[31:0]			tnum;
-	bit [11:0][7:0]			arr; 
+	testcase 						tc;
+	logic	[31:0]					tnum;
+	bit 	[PIXELWIDTH-1:0][7:0]	arr; 
 	
 	
 	// ~~~~ module instances ~~~~
-	LineBuffer #(.PIXELWIDTH(PWIDTH), .PIXELHEIGHT(PHEIGHT)) UUT
+	LineBuffer 
+	#(
+		.PWIDTH(PIXELWIDTH), 
+		.PHEIGHT(PIXELHEIGHT),
+		.WPTR_BIT(WPTR_BIT),
+		.RPTR_BIT(RPTR_BIT)
+	) 
+	UUT
 	( 
 		.CLK_i(clk), 				// 1'b	
 		.RST_i(reset), 				// 1'b
@@ -80,7 +91,7 @@ module LineBuffer_tb();
 		tc.new_test("Filling Line"); 
 		tnum			= tc.get_testnum();
 		
-			arr			= 96'h12_11_10_09_08_07_06_05_04_03_02_01;
+			arr			= 64'h08_07_06_05_04_03_02_01;
 			din_avail	= 1'b1; 
 			
 			tc.print_subtest("2/3 of writes");
@@ -150,28 +161,30 @@ module LineBuffer_tb();
 			#10;
 
 			// fill
-			for(int i = 3; i < 12; i++) begin
+			for(int i = 3; i < PIXELWIDTH; i++) begin
+				$display("|-%d", i);
 				din			= arr[i];
 				#5;
-				assert(dout === {arr[0], arr[1], arr[2]})	else tc.err("DOUT error");
+				assert(dout === {arr[0], arr[1], arr[2]})	else tc.err("DOUT static error");
 				#5;
 			end
 			
 			// empty
 			din_avail		= 1'b0;
 			dout_avail		= 1'b1;
-			for(int i = 3; i < 12; i++) begin
+			for(int i = 3; i < PIXELWIDTH; i++) begin
+				$display("|-%d", i);
 				#5;
-				assert(dout === {arr[i-2], arr[i-1], arr[i]})	else tc.err("DOUT error");
+				assert(dout === {arr[i-2], arr[i-1], arr[i]})	else tc.err("DOUT emptying error");
 				#5;
 			end
 			
 			#5;
-			assert(dout === {arr[10], arr[11], 8'hXX})			else tc.err("DOUT error");
+			assert(dout === {arr[PIXELWIDTH-2], arr[PIXELWIDTH-1], arr[0]})		else tc.err("DOUT 2/3 full error");
 			#10;
-			assert(dout === {arr[11], 16'hXX_XX})				else tc.err("DOUT error");
+			assert(dout === {arr[PIXELWIDTH-1], arr[0], arr[1]})				else tc.err("DOUT 1/3 full error");
 			#10;
-			assert(dout === {24'hXX_XX_XX})						else tc.err("DOUT error");
+			assert(dout === {arr[0], arr[1], arr[2]})							else tc.err("DOUT empty error");
 			#5;
 			
 		tc.test_done();	
@@ -181,7 +194,22 @@ module LineBuffer_tb();
 		tc.new_test("R/W synch'd rollover"); 
 		tnum			= tc.get_testnum();
 		
-			//todo
+			reset			= 1'b1; 
+			#10;
+			reset			= 1'b0;
+			din_avail		= 1'b1;
+			dout_avail		= 1'b0;
+			
+			for(bit[7:0] i = 0; i < PIXELWIDTH; i = i + 1'b1) begin
+				din = i; 
+				#10; 
+			end
+			
+			din = 8'hFF; // should be placed into the first idx if rollover is correct
+			#5;
+			assert(dout === {8'hFF, 8'h01, 8'h02})			else tc.err("DOUT error");
+			#5;
+			
 			
 			
 		tc.test_done();	

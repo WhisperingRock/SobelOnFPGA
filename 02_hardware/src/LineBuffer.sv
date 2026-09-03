@@ -31,7 +31,9 @@
 
 module LineBuffer
 #(parameter	int unsigned PWIDTH 	= 512,
-			int unsigned PHEIGHT 	= 512
+			int unsigned PHEIGHT 	= 512,
+			int unsigned WPTR_BIT	= 9,	// 2^9 = 512
+			int unsigned RPTR_BIT	= 9
 )
 ( 
 	input logic				CLK_i, 
@@ -43,9 +45,9 @@ module LineBuffer
 );
 
 	// ~~~~ local params/alloc ~~~~
-	logic [7:0] line [0:PWIDTH-1];			// line contains 512 (bytes) pixels
-	logic [8:0]	writePtr; 					// 9 bits covers 512 pixel width (2^9)
-	logic [8:0] readPtr;
+	logic [7:0] 			line [0:PWIDTH-1];			// line contains 512 (bytes) pixels
+	logic [WPTR_BIT - 1:0]	writePtr; 					// 9 bits covers 512 pixel width (2^9)
+	logic [RPTR_BIT - 1:0] 	readPtr;
 	
 	
 	// ~~~~ sync logic ~~~~
@@ -76,6 +78,6 @@ module LineBuffer
 	end
 	
 	// ~~~~ comb logic ~~~~
-	assign DOUT_o = {line[readPtr], line[readPtr+1'd1], line[readPtr+1'd2]};	// pack 3 pixels for kernel row
+	assign DOUT_o = {line[readPtr], line[readPtr + 2'b01], line[readPtr + 2'b10]};	// pack 3 pixels for kernel row
 	
 endmodule
