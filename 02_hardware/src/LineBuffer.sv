@@ -76,6 +76,6 @@ module LineBuffer
 	end
 	
 	// ~~~~ comb logic ~~~~
-	assign DOUT_o = {line[readPtr], line[readPtr+1], line[readPtr+2]};	// pack 3 pixels for kernel row
+	assign DOUT_o = {line[readPtr], line[readPtr+1'd1], line[readPtr+1'd2]};	// pack 3 pixels for kernel row
 	
 endmodule
