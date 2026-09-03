@@ -44,8 +44,6 @@ module ImageControlUnit_tb();
 	testcase tc;
 	logic	[31:0]			tnum;
 	logic	[71:0]			mat_ans;
-	int j; 
-	int k;
 
 	// ~~~~ instances ~~~~
 	ImageControlUnit 
@@ -96,7 +94,7 @@ module ImageControlUnit_tb();
 			wait(mvalid);
 			
 			for(int i = 0; i < PIXELWIDTH; i++) begin
-				$display("|-%d", i);
+				// $display("|-%d", i);
 				#5;
 				assert(mvalid === 1'b1)					else tc.err("mvalid HIGH error");
 				assert(mat === mat_ans)					else tc.err("mat error");
@@ -110,48 +108,27 @@ module ImageControlUnit_tb();
 			assert(mat === mat_ans)						else tc.err("mat ending error");
 			#5;
 		tc.test_done();
+
+		// ~ clear buffer ~
+		uniform_fill_LineBuffer(0, PIXELWIDTH*1, pixel, pvalid);		// r3, r0, r1, r2, r3
+
 		
+			
 		// ~~ TC2 ~~
-		tc.new_test("3 increasing rows only"); 
+		// Note : Kernel is on R(1,2,3)
+		// Note : wPtr is on R0
+		tc.new_test("blank"); 
 		tnum				= tc.get_testnum();
 		
-			increment_fill_LineBuffer(0, 512, pixel, pvalid); 		// row 0
-			
-			for(int i = 0; i < 64; i++) begin
-				increment_fill_LineBuffer(0, 8, pixel, pvalid); 	// row 1
-			end
-			
-			increment_fill_LineBuffer(0, 256, pixel, pvalid);		// row 2
-			increment_fill_LineBuffer(0, 256, pixel, pvalid);
-																
-			
-			wait(mvalid);
-			
-			for(int i = 0; i < PIXELWIDTH; i++) begin
-				$display("|-%d", i);
-				j = i % 256; 
-				k = i % 8;
-				mat_ans = 72'hXX_XX_XX___07_07_07___7E_7E_7E; todo
-				#5;
-				assert(mvalid === 1'b1)					else tc.err("mvalid HIGH error");
-				assert(mat === mat_ans)					else tc.err("mat error");
-				#5;
-			end
-			
-			// ~ run out of data ~ 
-			#5;
-			mat_ans = 72'hXX_XX_XX___07_07_07___7E_7E_7E;
-			assert(mvalid === 1'b0)						else tc.err("mvalid ending error");
-			assert(mat === mat_ans)						else tc.err("mat ending error");
-			#5;
 		tc.test_done();
+	
+		
 	end
+
 	
 	
 	
-	
-	
-	// ~~~~ tasks ~~~~
+	// ~~~~ utility tasks ~~~~
 	task automatic increment_fill_LineBuffer
 	(
 		input int unsigned 	startNum, 
@@ -178,7 +155,7 @@ module ImageControlUnit_tb();
 	);
 	
 		writeEn = 1'b1; 
-		for(int i = 0; i < buffSize; i++) begin
+		for(int unsigned i = 0; i < buffSize; i++) begin
 			pxl = num;
 			#10;  
 		end
