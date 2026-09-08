@@ -37,6 +37,9 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{caption}
 
+% ~~~~ for subfigs ~~~~
+\usepackage{subcaption}
+
 \usepackage{pgfplots}
 \pgfplotsset{compat = newest}
 
@@ -204,12 +207,26 @@
 
 			\begin{figure}[H]
 				\centering
+				\includegraphics[width=0.5\textwidth]{../01_supporting/linebuffer/visual1.png}
+				\caption{LineBuffer Visualized as Circular}
+				\label{fig:lb_visual_circ}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.7\textwidth]{../01_supporting/linebuffer/flow.png}
+				\caption{LineBuffer Flowchart}
+				\label{fig:lb_flow}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
 				\includegraphics[width=0.8\textwidth]{../01_supporting/linebuffer/rtl.png}
 				\caption{LineBuffer RTL}
 				\label{fig:lb_rtl}
 			\end{figure}	
 
-			Code Snippets : 
+			Code : 
 			\begin{itemize}
 				\item \texttt{LineBuffer.sv} \ref{code:linebuff}
 				\item \texttt{LineBuffer\_tb.sv} \ref{testcode:linebuff}
@@ -224,23 +241,63 @@
 						convolving the image with the kernel filter. 
 			\end{itemize}
 
-			\textbf{Always}:
+			The kernels used were :
+
+			\textbf{Unity Gain Box Blurr}
 			\[
-				sum = \sum_{i=0}^{8} m[i] * k[i]
+				k = 
+					\frac{1}{9}
+					\begin{bmatrix}
+						1 & 1 & 1 \\
+						1 & 1 & 1 \\
+						1 & 1 & 1 
+					\end{bmatrix}
 			\] 
 
-			\textbf{CLK}:
+			\textbf{Sobel X-axis}
 			\[
-				Result = 
-				\begin{cases*}
-					Result & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
-					\begin{cases*}
-						0 	& , if	$sum < 0$ 	\\
-						255	& , if	$sum > 255$	\\
-						\frac{sum}{div} & , else
-					\end{cases*} & , if $\text{\texttt{MATRIX\_VALID}}$
-				\end{cases*}
+				k = 
+					\begin{bmatrix}
+						1 & 0 & -1 \\
+						2 & 0 & -2 \\
+						1 & 0 & -1 
+					\end{bmatrix}
 			\] 
+
+			\textbf{Sobel Y-axis}
+			\[
+				k = 
+					\begin{bmatrix}
+						 1  &  2  &  1 \\
+					 	 0  &  0  &  0 \\
+						-1  & -2  & -1 
+					\end{bmatrix}
+			\] 
+
+
+			\subsection{Design}
+
+				\textbf{Always}:
+				\[
+					sum = \sum_{i=0}^{8} m[i] * k[i]
+				\] 
+
+				\textbf{CLK}:
+				\[
+					\text{\texttt{Result}} = 
+					\begin{cases*}
+						\text{\texttt{Result}} & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
+						\begin{cases*}
+							0 	& , if	$sum < 0$ 	\\
+							255	& , if	$sum > 255$	\\
+							\frac{sum}{div} & , else
+						\end{cases*} & , if $\text{\texttt{MATRIX\_VALID}}$
+					\end{cases*}
+				\]\\ 
+
+				\[
+					\text{\texttt{RESULT\_VALID}} =  \text{\texttt{MATRIX\_VALID}}
+				\] 
 
 
 			\begin{figure}[H]
@@ -271,11 +328,351 @@
 				\label{fig:conv_rtl}
 			\end{figure}
 
-			Code Snippets : 
+			Code : 
 			\begin{itemize}
 				\item \texttt{Convolution.sv} \ref{code:convolution}
 				\item \texttt{Convolution\_tb.sv} \ref{testcode:convolution}
 			\end{itemize}
+
+		\newpage
+		\section{Image Control Unit}
+
+			The IMU is designed to :
+			\begin{itemize}
+				\item Orchestrate which LineBuffer is to receive incoming pixel data through the use of
+						counters and indexers \texttt{pixelCounter} and \texttt{currWrLineBuff}. 
+						\texttt{pixelCounter} is the current pixel for the row and \texttt{currWrLineBuff}
+						indicates which LineBuffer is recieving the incoming data. 
+
+				\item Orchestrate which LineBuffers are contributing to the exported 3x3 matrix window 
+						through the use of counters and indexers \texttt{windowCounter} and \texttt{currRdLineBuff}. 
+						\texttt{windowCounter} is the window's left-most pixel in reference to a row of pixels. Said 
+						another way, incrementing this variable slides the 3x3 window right by one pixel and
+						resets after reaching 511 pixels. \texttt{currRdLineBuff} controls which combination of 
+						LineBuffer outputs are used to create the window s.t. incrementing this variable 
+						shifts the 3x3 window down by one pixel. 
+
+				\item Ensure there are at least three rows of pixel data in the buffer before sliding
+						the output window. This is tracked using \texttt{currBufferedPixels} and the FSM
+						logic.
+			\end{itemize}
+
+			\hl{NOTE} : I really need to use UVM encapsulation/sanitization for testing this module. 
+						The read and write pointers do not line up and there is no way to erase
+						the memory contents of the line buffers with reset. That would probably take
+						a considerable effort to do such a thing\ldots
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/image_control_unit/block.png}
+				\caption{IMU Block}
+				\label{fig:imu_block}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.6\textwidth]{../01_supporting/image_control_unit/visual_input.png}
+				\caption{IMU Data Importing Visualized}
+				\label{fig:imu_visual_import}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.6\textwidth]{../01_supporting/image_control_unit/visual_output.png}
+				\caption{IMU Data Exporting Visualized}
+				\label{fig:imu_visual_export}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=1.0\textwidth]{../01_supporting/image_control_unit/visual_2.png}
+				\caption{IMU Visualized in another way}
+				\label{fig:imu_visual_2}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.8\textwidth]{../01_supporting/image_control_unit/flow_sync.png}
+				\caption{IMU CLK Sync'd Flowchart}
+				\label{fig:imu_flow}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.6\textwidth]{../01_supporting/image_control_unit/fsm.png}
+				\caption{IMU FSM}
+				\label{fig:imu_fsm}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[
+					angle			= 90,
+					origin			= c,
+					trim			= 5mm 90mm 5mm 90mm,
+					clip,
+					width			= 0.8\textwidth,
+					keepaspectratio	= true
+				]{../01_supporting/image_control_unit/rtl.pdf}
+				\caption{IMU RTL}
+				\label{fig:imu_rtl}
+			\end{figure}
+			
+			Code : 
+			\begin{itemize}
+				\item \texttt{ImageControlUnit.sv} \ref{code:imu}
+				\item \texttt{ImageControlUnit\_tb.sv} \ref{testcode:imu}
+			\end{itemize}
+
+		\newpage
+		\section{Image Control Top}
+
+			The Image Control Top module is designed to :
+			\begin{itemize}
+				\item \ldots
+			\end{itemize}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/image_control_unit_top/block.png}
+				\caption{IM Top Block}
+				\label{fig:imu_top_block}
+			\end{figure}
+
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.9\textwidth]{../01_supporting/image_control_unit_top/rtl.png}
+				\caption{IM Top Hardware}
+				\label{fig:imu_top_rtl}
+			\end{figure}
+
+			\subsection{Output Buffer}
+
+				The module now has a 2-depth FIFO output buffer, supplied by Vivado IP, but why?
+				Well, the FIFO is useful because the filter pipeline could produce
+				result pixels at a different rate than the downstream could
+				accept them. Without the buffer, the convolution block could
+				overwrite its previous result before it is read. Fortunately for us, 
+				this scenario is more likely than the entire pipeline stalling out
+				but that could still occur. 
+
+				While the current simulation is not connecting the full indicator, 
+				this will be useful for regulating the pipeline back pressure.
+
+			\subsection{AXI Bus}
+
+			\newpage
+			\subsection{Design Questions}
+				\subsubsection{Q: How many buffers should we initially fill?}
+
+					The model needs at least three buffers filled to start the convolution
+					and we only have four line buffers to fill so some potential 
+					options are pre-filling three or all four line buffers. 
+					Lets compare the sim results side by side :
+
+					\begin{figure}[H]
+						\centering
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_3LB_wave.png}
+							\caption{Macro waveform for 3 line buffers}
+						\end{subfigure}
+						\hfill
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_4LB_wave.png}
+							\caption{Macro waveform for 4 line buffers}
+						\end{subfigure}
+						\caption{Simulation between 3 and 4 prefilled LineBuffers}
+						\label{fig:}
+					\end{figure}	
+
+					Observations between waveforms :
+					\begin{itemize}
+						\item \textbf{Timing} : It took the 3LBs 5.26 \texttt{ms} and 2.64 \texttt{ms} for 4LB 
+							to complete the block blurr algorithm. It almost took twice as long 
+							to do the entire process based off of a single 
+							prefill. Thats big.
+
+						\item \textbf{Read/Write} : 
+							For 3LB, we are not importing
+							in new values while writing nor are we exporting data
+							while importing. This is also reflected in the states
+							where we reside in one logic state for 512 reads or writes
+							but not both. For 3LB, it seems we are always 
+							waiting to read or write but never both. 
+
+							For 4LB, it appears we briefly go into the \texttt{IDLE}
+							state but largely remain in the \texttt{RD\_BUFFER} state.
+							This somehow allows us to import AND export data at
+							the same time, likely cutting down our compute time in
+							the process. 
+					\end{itemize}
+
+					Given such large gap in performance between the two options, 
+					lets take a closer look at what is going on here.
+
+					\begin{figure}[H]
+						\centering
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_3LB_start.png}
+							\caption{3 line buffers}
+						\end{subfigure}
+						\hfill
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_4LB_start.png}
+							\caption{4 line buffers}
+						\end{subfigure}
+						\caption{Simulation start between 3 and 4 prefilled LineBuffers}
+						\label{fig:}
+					\end{figure}	
+
+					Observations between these starting waveforms:
+					\begin{itemize}
+						\item Both begin outputting result pixel data and reach 
+								the \texttt{RD\_BUFFER} state. 
+						\item Only 4LB accepts \texttt{imgData} by keeping \texttt{imgDataValid}
+								high but 3LB lowers this signal. This is our 4th row
+								being written to the buffer.
+						\item Both waveforms reach a net buffer count of three rows (1536)
+							in \texttt{currBufferedPixels} but the 3LB doesn't 
+							retain this number. 3LB decreases in net pixel count because
+							it is no longer importing data while exporting, something 
+							of a triangle wave of net bufferd pixels. 
+						\item No interrupt signals are present for both signals during this 
+								startup. 
+					\end{itemize}
+
+					
+					Lastly, lets consider the waveforms at the crossover between FSM logic.
+					\begin{figure}[H]
+						\centering
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_3LB_crossover1.png}
+							\caption{3 line buffers : RD to IDLE}
+						\end{subfigure}
+						\hfill
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_3LB_crossover2.png}
+							\caption{3 line buffers : IDLE to RD}
+						\end{subfigure}
+						\hfill
+						\begin{subfigure}{1.0\textwidth}
+							\centering
+							\includegraphics[
+								width			= 0.8\textwidth,
+								keepaspectratio	= true
+							]{../01_supporting/image_control_unit_top/sim_4LB_crossover.png}
+							\caption{4 line buffers}
+						\end{subfigure}
+						\caption{Simulation start between 3 and 4 prefilled LineBuffers}
+						\label{fig:}
+					\end{figure}	
+
+
+			\subsection{Testing}
+
+				The kernel used was the box blur which averages all neighboring
+				pixels with a gain of 1.
+				\[
+					K = 
+					\frac{1}{9}
+					\begin{bmatrix}
+						1 & 1 & 1 \\
+						1 & 1 & 1 \\
+						1 & 1 & 1 
+					\end{bmatrix}
+				\] 
+	
+				\begin{figure}[H]
+					\centering
+					\begin{subfigure}{0.4\textwidth}
+						\centering
+						\includegraphics[
+							width			= \textwidth,
+							keepaspectratio	= true
+						]{../01_supporting/image_control_unit_top/testimg1.png}
+						\caption{Input Image}
+					\end{subfigure}
+					%\hfill
+					\begin{subfigure}{0.4\textwidth}
+						\centering
+						\includegraphics[
+							width			= \textwidth,
+							keepaspectratio	= true
+						]{../01_supporting/image_control_unit_top/blurred_testimg1.png}
+						\caption{Output Filtered Image}
+					\end{subfigure}
+					%\hfill
+					\begin{subfigure}{0.4\textwidth}
+						\centering
+						\includegraphics[
+							width			= \textwidth,
+							keepaspectratio	= true
+						]{../01_supporting/image_control_unit_top/diff_testimg1.png}
+						\caption{Difference Image (shift unfixed)}
+					\end{subfigure}
+					%\hfill
+					\begin{subfigure}{0.4\textwidth}
+						\centering
+						\includegraphics[
+							width			= \textwidth,
+							keepaspectratio	= true
+						]{../01_supporting/image_control_unit_top/diff_testimg1_shiftfix.png}
+						\caption{Difference Image (shift fixed)}
+					\end{subfigure}
+					\caption{I/O of image}
+					\label{fig:result_imtop}
+				\end{figure}	
+
+				\begin{figure}[H]
+					\centering
+					\includegraphics[
+						width			= 0.5\textwidth,
+						keepaspectratio	= true
+					]{../01_supporting/image_control_unit_top/pixel_offset.png}
+					\caption{Offset on Output Image}
+				\end{figure}
+
+				Observations
+				\begin{itemize}
+					\item Output image (b) is blurred
+					\item Output image (b) has a black pixel boarder
+						on the top and right sides of the picture.
+					\item Difference image (d) gives a much better
+						depiction of the high-frequency details that were
+						removed than image (c). The pixels are also uniform
+						throughout the image as well, which is not the case
+						in (c). 
+				\end{itemize}
+
+			\subsection{Result Questions}
+
+				\subsubsection{Q:Why was the entire output image shifted?}
+
+			
 
 
 	\chapter{Results}
@@ -325,6 +722,23 @@
 				]{../02_hardware/sim/Convolution_tb.sv}
 
 
+			\subsection{Image Control Unit}
+	
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{ImageControlUnit.sv}},
+					breaklines	= true,
+					label		= {code:imu}
+				]{../02_hardware/src/ImageControlUnit.sv}
+
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{ImageControlUnit\_tb.sv}},
+					breaklines	= true,
+					label		= {testcode:imu}
+				]{../02_hardware/sim/ImageControlUnit_tb.sv}
 
 
 	\chapter{References}
