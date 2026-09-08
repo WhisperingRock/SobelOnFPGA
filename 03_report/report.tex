@@ -15,7 +15,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{enumitem}
-%\usepackage{xfrac}
+\usepackage{xfrac}
 \usepackage[normalem]{ulem}
 \usepackage{mathtools}
 
@@ -241,32 +241,43 @@
 						convolving the image with the kernel filter. 
 			\end{itemize}
 
+			\begin{figure}[H]
+				\centering
+				\includegraphics[width=0.3\textwidth]{../01_supporting/convolution/block.png}
+				\caption{Convolution Block}
+				\label{fig:conv_block}
+			\end{figure}
+
 			The kernels used were :
 
 			\textbf{Unity Gain Box Blurr}
 			\[
-				k = 
+				k_b = 
 					\frac{1}{9}
 					\begin{bmatrix}
 						1 & 1 & 1 \\
 						1 & 1 & 1 \\
 						1 & 1 & 1 
 					\end{bmatrix}
+				= 
+					\begin{bmatrix}
+						\sfrac{1}{9} & \sfrac{1}{9} & \sfrac{1}{9} \\
+						\sfrac{1}{9} & \sfrac{1}{9} & \sfrac{1}{9} \\
+						\sfrac{1}{9} & \sfrac{1}{9} & \sfrac{1}{9} 
+					\end{bmatrix}
 			\] 
 
-			\textbf{Sobel X-axis}
+			\textbf{Sobel}
 			\[
-				k = 
+				k_x = 
 					\begin{bmatrix}
 						1 & 0 & -1 \\
 						2 & 0 & -2 \\
 						1 & 0 & -1 
 					\end{bmatrix}
 			\] 
-
-			\textbf{Sobel Y-axis}
 			\[
-				k = 
+				k_y = 
 					\begin{bmatrix}
 						 1  &  2  &  1 \\
 					 	 0  &  0  &  0 \\
@@ -277,42 +288,55 @@
 
 			\subsection{Design}
 
-				\textbf{Always}:
+				\textbf{Always}: Compute the dot product between matrices
 				\[
-					sum = \sum_{i=0}^{8} m[i] * k[i]
+					G = \sum_{i=0}^{8} m[i] * k[i]
 				\] 
 
-				\textbf{CLK}:
+				\textbf{CLK}: Process result and clip
 				\[
-					\text{\texttt{Result}} = 
+					\text{\texttt{Box Blur Result}} = 
 					\begin{cases*}
-						\text{\texttt{Result}} & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
+						\text{\texttt{prev Result}} & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
 						\begin{cases*}
-							0 	& , if	$sum < 0$ 	\\
-							255	& , if	$sum > 255$	\\
-							\frac{sum}{div} & , else
+							0 	& , if	$G_b < 0$ 	\\
+							255	& , if	$G_b > 255$	\\
+							\frac{G_b}{9} & , else
 						\end{cases*} & , if $\text{\texttt{MATRIX\_VALID}}$
 					\end{cases*}
-				\]\\ 
+				\]
+				\[
+					\text{\texttt{Sobel Result}} = 
+					\begin{cases*}
+						\text{\texttt{prev Result}} & , if $ \overline{\text{\texttt{MATRIX\_VALID}}}$ \\\\
+						\begin{cases*}
+							0 	& , if	$(G_x^2 + G_y^2) < p_{thresh}$ \\
+							255	& , else
+						\end{cases*} & , if $\text{\texttt{MATRIX\_VALID}}$
+					\end{cases*}
+				\]
+
+				and \ldots
 
 				\[
 					\text{\texttt{RESULT\_VALID}} =  \text{\texttt{MATRIX\_VALID}}
 				\] 
 
+				It should be noted that the pixel threshold $p_{thresh}$ is currently set
+				to 4,000 of 65,025. This threshold value was used rather than the
+				euclidean distance $\sqrt{G_x^2 + G_y^2}$. Our tradeoff makes this 
+				easier to compute s.t. we dont use sqrt but some of our edges 
+				may be removed and lines may become discontinuous. For a
+				proof of concept, this is acceptable. 
 
-			\begin{figure}[H]
-				\centering
-				\includegraphics[width=0.3\textwidth]{../01_supporting/convolution/block.png}
-				\caption{Convolution Block}
-				\label{fig:conv_block}
-			\end{figure}
-
+\iffalse
 			\begin{figure}[H]
 				\centering
 				\includegraphics[width=0.3\textwidth]{../01_supporting/convolution/visual.png}
 				\caption{Convolution Visualized}
 				\label{fig:conv_visual}
 			\end{figure}
+\fi
 
 			\begin{figure}[H]
 				\centering
@@ -357,7 +381,7 @@
 						logic.
 			\end{itemize}
 
-			\hl{NOTE} : I really need to use UVM encapsulation/sanitization for testing this module. 
+\hl{todo} : I really need to use UVM encapsulation/sanitization for testing this module. 
 						The read and write pointers do not line up and there is no way to erase
 						the memory contents of the line buffers with reset. That would probably take
 						a considerable effort to do such a thing\ldots
@@ -446,21 +470,22 @@
 				\label{fig:imu_top_rtl}
 			\end{figure}
 
-			\subsection{Output Buffer}
+			\subsection{Vivado Generated Components}
+				\subsubsection{Output Buffer}
 
-				The module now has a 2-depth FIFO output buffer, supplied by Vivado IP, but why?
-				Well, the FIFO is useful because the filter pipeline could produce
-				result pixels at a different rate than the downstream could
-				accept them. Without the buffer, the convolution block could
-				overwrite its previous result before it is read. Fortunately for us, 
-				this scenario is more likely than the entire pipeline stalling out
-				but that could still occur. 
+					The module now has a 2-depth FIFO output buffer, supplied by Vivado IP, but why?
+					Well, the FIFO is useful because the filter pipeline could produce
+					result pixels at a different rate than the downstream could
+					accept them. Without the buffer, the convolution block could
+					overwrite its previous result before it is read. Fortunately for us, 
+					this scenario is more likely than the entire pipeline stalling out
+					but that could still occur. 
 
-				While the current simulation is not connecting the full indicator, 
-				this will be useful for regulating the pipeline back pressure.
+					While the current simulation is not connecting the full indicator, 
+					this will be useful for regulating the pipeline back pressure.
 
-			\subsection{AXI Bus}
-
+				\subsubsection{AXI Bus}
+\hl{todo}
 			\newpage
 			\subsection{Design Questions}
 				\subsubsection{Q: How many buffers should we initially fill?}
@@ -591,21 +616,31 @@
 						\label{fig:}
 					\end{figure}	
 
+\hl{todo}			
 
 			\subsection{Testing}
 
-				The kernel used was the box blur which averages all neighboring
-				pixels with a gain of 1.
-				\[
-					K = 
-					\frac{1}{9}
-					\begin{bmatrix}
-						1 & 1 & 1 \\
-						1 & 1 & 1 \\
-						1 & 1 & 1 
-					\end{bmatrix}
-				\] 
-	
+				A visual comparison of the sim I/O \ref{testcode:ipt} was 
+				performed with a grayscale \texttt{.bmp} of Lena (a), and 
+				the results of the box blur were (b) and sobel (e). For 
+				verification, the box blur image was subtracted from the 
+				input and recorded in image (c). This image is suspicious 
+				because it
+				exhibits extreme areas of pixel change despite
+				the averaging' blur filter. We arrive that image (b) 
+				must be shifted over some due to the convolution process. 
+				Image (b) also has a thin black line on the top and right 
+				side, supporting this hypothesis. Shifting the output image (b)
+				using \ref{fig:offset} and recalculating the difference between 
+				input and output, we get image (d) which correctly illustrates 
+				a uniform removal of high-freq data from the photo. 
+
+				Analyzing the sobel photo (e), the strong lines are well
+				defined but weaker ones lose their continuity. This is part
+				of the tradeoff mentioned earlier as well as a drawback 
+				from the filter itself\ldots I didn't claim sobel to be the 
+				best edge detector\ldots
+
 				\begin{figure}[H]
 					\centering
 					\begin{subfigure}{0.4\textwidth}
@@ -623,7 +658,7 @@
 							width			= \textwidth,
 							keepaspectratio	= true
 						]{../01_supporting/image_control_unit_top/blurred_testimg1.png}
-						\caption{Output Filtered Image}
+						\caption{Output Box Blur Image}
 					\end{subfigure}
 					%\hfill
 					\begin{subfigure}{0.4\textwidth}
@@ -632,7 +667,7 @@
 							width			= \textwidth,
 							keepaspectratio	= true
 						]{../01_supporting/image_control_unit_top/diff_testimg1.png}
-						\caption{Difference Image (shift unfixed)}
+						\caption{Blur Difference Image (shift unfixed)}
 					\end{subfigure}
 					%\hfill
 					\begin{subfigure}{0.4\textwidth}
@@ -641,8 +676,17 @@
 							width			= \textwidth,
 							keepaspectratio	= true
 						]{../01_supporting/image_control_unit_top/diff_testimg1_shiftfix.png}
-						\caption{Difference Image (shift fixed)}
+						\caption{Blur Difference Image (shift fixed)}
 					\end{subfigure}
+					\begin{subfigure}{0.4\textwidth}
+						\centering
+						\includegraphics[
+							width			= \textwidth,
+							keepaspectratio	= true
+						]{../01_supporting/image_control_unit_top/sobel_testimg1.png}
+						\caption{Output Sobel Image}
+					\end{subfigure}
+
 					\caption{I/O of image}
 					\label{fig:result_imtop}
 				\end{figure}	
@@ -654,19 +698,14 @@
 						keepaspectratio	= true
 					]{../01_supporting/image_control_unit_top/pixel_offset.png}
 					\caption{Offset on Output Image}
+					\label{fig:offset}
 				\end{figure}
 
-				Observations
-				\begin{itemize}
-					\item Output image (b) is blurred
-					\item Output image (b) has a black pixel boarder
-						on the top and right sides of the picture.
-					\item Difference image (d) gives a much better
-						depiction of the high-frequency details that were
-						removed than image (c). The pixels are also uniform
-						throughout the image as well, which is not the case
-						in (c). 
-				\end{itemize}
+			Code : 
+			\begin{itemize}
+				\item \texttt{ImageProcessTop.sv} \ref{code:ipt}
+				\item \texttt{ImageProcessTop\_tb.sv} \ref{testcode:ipt}
+			\end{itemize}
 
 			\subsection{Result Questions}
 
@@ -709,7 +748,7 @@
 					language	= {Verilog},
 					captionpos	= top,
 					caption		= {\texttt{Convolution.sv}},
-					breaklines	= true,
+					breaklines	= false,
 					label		= {code:convolution}
 				]{../02_hardware/src/Convolution.sv}
 
@@ -740,6 +779,24 @@
 					label		= {testcode:imu}
 				]{../02_hardware/sim/ImageControlUnit_tb.sv}
 
+
+			\subsection{Image Process Top}
+	
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{ImageProcessTop.sv}},
+					breaklines	= true,
+					label		= {code:ipt}
+				]{../02_hardware/src/ImageProcessTop.sv}
+
+				\lstinputlisting[
+					language	= {Verilog},
+					captionpos	= top,
+					caption		= {\texttt{ImageProcessTop\_tb.sv}},
+					breaklines	= true,
+					label		= {testcode:ipt}
+				]{../02_hardware/sim/ImageProcessTop_tb.sv}
 
 	\chapter{References}
 		\href{https://www.youtube.com/watch?v=Zm3KzhahbUg&list=PL1tvZA53A9hJnwmiqPt1KeXrAQ9kd52H2&index=11}{Youtube Inspiration}
