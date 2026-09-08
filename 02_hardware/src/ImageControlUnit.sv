@@ -29,7 +29,8 @@ module ImageControlUnit
 	input logic 			PIXEL_VALID_i,
 	input logic 	[7:0] 	PIXEL_i,
 	output logic 			MATRIX_VALID_o, 
-	output logic	[71:0] 	MATRIX_o 
+	output logic	[71:0] 	MATRIX_o,
+	output logic			INTRR_o 
 );
 
 
@@ -147,6 +148,7 @@ module ImageControlUnit
 			
 			rdState				<= IDLE;
 			MATRIX_VALID_o 		<= 1'b0;
+			INTRR_o				<= 1'b0;
 		end
 		
 		// ~~ priority 1 : read or write data ~~
@@ -192,16 +194,18 @@ module ImageControlUnit
 			// ~ IDLE : dont output til buffer enough rows for a full kernel pass ~
 			IDLE : begin	
 				if(currBufferedPixels >= pixelsInThreeRows) begin 
-					rdState <= RD_BUFFER;
-					MATRIX_VALID_o <= 1'b1;
+					rdState 		<= RD_BUFFER;
+					MATRIX_VALID_o 	<= 1'b1;
+					INTRR_o			<= 1'b0;
 				end
 			end
 			
 			// ~ RD_BUFFER : output windows til the row end is reached ~
 			RD_BUFFER : begin
 				if(windowCounter == PIXELWIDTH-1) begin 
-					rdState <= IDLE;
-					MATRIX_VALID_o <= 1'b0;
+					rdState 		<= IDLE;
+					MATRIX_VALID_o 	<= 1'b0;
+					INTRR_o			<= 1'b1;
 				end
 			end
 		endcase
